@@ -1,15 +1,25 @@
 # File: bp.py
-# usage: python3.6 bp.py [> outfile]
 
 """
-Reads a file and looks for a time stamp of the format returned by the
-date utility.  Each line with such a time stamp is replaced by just
-the hour and minutes part without the time zone and year components.
+Usage:
+    python bp.py FILE [> outfile]
+    python bp.py test
+
+Reads a file and in each line looks for a time stamp of the format
+returned by the date utility.  Each line with such a time stamp is
+replaced by just the hour and minutes part without the time zone
+and year components.
 The day of week and date components are not disturbed.
 Provided also is the ability to specify a 'header' line and 
-its 'underline' so that these can also be replaced.
+its 'underline' so that these can also be replaced. For this, you'd
+have to modify the source.
+The year is entered as a separate line above any sequence of lines
+that all bear the same year.
 The input file is specified as the first parameter. 
 Output goes to stdout.
+If the fist parameter is 'test', the test function is run.
+
+Works with both python v2.7 and v3 up to and including v3.6
 """
 
 import re
@@ -18,11 +28,11 @@ import sys
 sample = """
 Sun Sep 24 09:18:48 PDT 2017 129/67 59 +
           ^     ^  ^   ^    ^
-          |     |  |   |    \ 
-          |     |  |   \     --29
-          |     |  \    -------24
-          |     \   -----------20
-          \      --------------17
+          |     |  |   |    |
+          |     |  |   |     --29
+          |     |  |    -------24
+          |     |   -----------20
+          |      --------------17
            --------------------11
 """
 
@@ -62,13 +72,14 @@ def process_line(line):
                 year = yr
                 ret.append(yr)
         new_data_line = line[:b + 5] + line[e + 9:]
-        ret.append(new_data_line.strip())
+        ret.append(new_data_line.rstrip())
         return '\n'.join(ret)
     else:
-        return line.strip()
+        return line.rstrip()
 
 def test():
     for line in sample.split('\n'):
+        print(process_line(line))
         match_object = time_pattern.search(line)
         if match_object:
             b, e = match_object.span()
