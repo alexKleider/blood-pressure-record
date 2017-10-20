@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # File: bp.py
 
 """
@@ -7,16 +8,17 @@ Usage:
 
 Reads a file and in each line looks for a time stamp of the format
 returned by the date utility.  Each line with such a time stamp is
-replaced by just the hour and minutes part without the time zone
-and year components.
+replaced by just the hour and minutes part without the seconds, the
+time zone and the year components.
 The day of week and date components are not disturbed.
 Provided also is the ability to specify a 'header' line and 
 its 'underline' so that these can also be replaced. For this, you'd
 have to modify the source.
 The year is entered as a separate line above any sequence of lines
-that all bear the same year.
+the originals of which all share the same year.
 The input file is specified as the first parameter. 
 Output goes to stdout.
+
 If the fist parameter is 'test', the test function is run.
 
 Works with both python v2.7 and v3 up to and including v3.6
@@ -78,6 +80,14 @@ def process_line(line):
         return line.rstrip()
 
 def test():
+    """
+    Each line of the 'sample' gets printed more than once.
+    The sample begins with a blank line, and as is true for
+    all lines that don't 'match' (i.e. contain a time stamp)
+    it is reproduced twice. Lines that do match, appear
+    four times.
+    """
+    print("Running a test- read the test docstring to make sense!")
     for line in sample.split('\n'):
         print(process_line(line))
         match_object = time_pattern.search(line)
@@ -96,4 +106,6 @@ if len(sys.argv) > 1:
         with open(sys.argv[1], 'r') as f_object:
             for line in f_object:
                 print(process_line(line))
-
+else:
+    print(
+"No command line argument (an input file would be nice) provided.")
