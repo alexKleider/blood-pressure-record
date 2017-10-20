@@ -26,8 +26,9 @@ Works with both python v2.7 and v3 up to and including v3.6
 
 import re
 import sys
+from typing import Union, List
 
-sample = """
+sample: str = """
 Sun Sep 24 09:18:48 PDT 2017 129/67 59 +
           ^     ^  ^   ^    ^
           |     |  |   |    |
@@ -38,48 +39,49 @@ Sun Sep 24 09:18:48 PDT 2017 129/67 59 +
            --------------------11
 """
 
-year = None
+year: Union[str, None] = None
 
-time_re = r'\b\d{2,2}:\d{2,2}:\d{2,2}\b'
+time_re: str = r'\b\d{2,2}:\d{2,2}:\d{2,2}\b'
 time_pattern = re.compile(time_re)
-year_re = r'\b\d{4}\b'
+year_re: str = r'\b\d{4}\b'
 year_pattern = re.compile(year_re)
 
-header = "Day Date   Time         Year sys/di pulse"
-underline = "--- ------ ------------ ---- --- -- --"
+header: str = "Day Date   Time         Year sys/di pulse"
+underline: str = "--- ------ ------------ ---- --- -- --"
 
-replacement_header = "Day Date   Time  sys/di pulse"
-replacement_underline = "--- ------ ----- --- -- --"
+replacement_header: str = "Day Date   Time  sys/di pulse"
+replacement_underline: str = "--- ------ ----- --- -- --"
 
-def process_header(line):
+def process_header(line: str) -> Union[str, None]:
     if header in line:
         return replacement_header
-    if underline in line:
+    elif underline in line:
         return replacement_underline
+    else:
+        return None
 
-
-def process_line(line):
+def process_line(line: str) -> str:
     global year
-    header = process_header(line)
+    header: str = process_header(line)
     if header:
         return header
     match_object = time_pattern.search(line)
     if match_object:
-        ret = []
+        ret: List[str] = []
         b, e = match_object.span()
         match_object = year_pattern.search(line)
         if match_object:
-            yr = match_object.group()
+            yr: str = match_object.group()
             if year != yr:
                 year = yr
                 ret.append(yr)
-        new_data_line = line[:b + 5] + line[e + 9:]
+        new_data_line: str = line[:b + 5] + line[e + 9:]
         ret.append(new_data_line.rstrip())
         return '\n'.join(ret)
     else:
         return line.rstrip()
 
-def test():
+def test() -> None:
     """
     Each line of the 'sample' gets printed more than once.
     The sample begins with a blank line, and as is true for
@@ -109,3 +111,4 @@ if len(sys.argv) > 1:
 else:
     print(
 "No command line argument (an input file would be nice) provided.")
+
