@@ -1,5 +1,6 @@
 bp*
 !bp.py
+!bp.source
 __pycache__
 *.pyc
 .mypy_cache
