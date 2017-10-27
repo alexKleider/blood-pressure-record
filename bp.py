@@ -2,6 +2,10 @@
 # File: bp.py
 
 """
+Requires python 3.6 but only because of the static typing syntax.
+If this is removed, the script will probably run on earlier versions
+including 2.7.
+
 Usage:
     python bp.py FILE [> outfile]
     python bp.py test

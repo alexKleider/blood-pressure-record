@@ -10,3 +10,7 @@ necessary so this script was written to shorten each line- also the
 year was made into a group header instead of appearing on each line.
 
 A typical source file is provided: bp.source
+
+Python 3.6 syntax is used: specifically some static typing is
+included.  If these are removed, the script will probably run
+using earlier versions of Python, including 2.7.
