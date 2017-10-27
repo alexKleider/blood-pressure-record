@@ -45,6 +45,16 @@ time_re: str = r'\b\d{2,2}:\d{2,2}:\d{2,2}\b'
 time_pattern = re.compile(time_re)
 year_re: str = r'\b\d{4}\b'
 year_pattern = re.compile(year_re)
+reading_re: str = r"""
+[ ]
+(?P<systolic>\d{2,3})
+/
+(?P<diastolic>\d{2,3})
+[ ]
+(?P<pulse>\d{2,3})
+"""
+reading_pattern = re.compile(reading_re, re.VERBOSE)
+n_readings = sum_systolic = sum_diastolic = sum_pulse = 0
 
 header: str = "Day Date   Time         Year sys/di pulse"
 underline: str = "--- ------ ------------ ---- --- -- --"
@@ -61,12 +71,20 @@ def process_header(line: str) -> Union[str, None]:
         return None
 
 def process_line(line: str) -> str:
-    global year
+    global year, n_readings, sum_systolic, sum_diastolic, sum_pulse
     header: str = process_header(line)
     if header:
         return header
     match_object = time_pattern.search(line)
     if match_object:
+        reading_match = reading_pattern.search(line)
+        if reading_match:
+            n_readings += 1
+            sum_systolic += int(reading_match.group("systolic"))
+            sum_diastolic += int(reading_match.group("diastolic"))
+            sum_pulse += int(reading_match.group("pulse"))
+        else:
+            print("No bp|pulse matched in {}".format(line))
         ret: List[str] = []
         b, e = match_object.span()
         match_object = year_pattern.search(line)
@@ -108,6 +126,14 @@ if len(sys.argv) > 1:
         with open(sys.argv[1], 'r') as f_object:
             for line in f_object:
                 print(process_line(line))
+        if n_readings:
+            avg_systolic = (sum_systolic/n_readings)
+            avg_diastolic = (sum_diastolic/n_readings)
+            avg_pulse = (sum_pulse/n_readings)
+            print("Average (sys/di pulse) is {:.0f}/{:.0f} {:.0f}"
+                .format( avg_systolic, avg_diastolic, avg_pulse))
+        else:
+            print("No readings to average.")
 else:
     print(
 "No command line argument (an input file would be nice) provided.")
