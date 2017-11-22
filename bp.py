@@ -134,8 +134,9 @@ if len(sys.argv) > 1:
             avg_systolic = (sum_systolic/n_readings)
             avg_diastolic = (sum_diastolic/n_readings)
             avg_pulse = (sum_pulse/n_readings)
-            print("Average (sys/di pulse) is {:.0f}/{:.0f} {:.0f}"
-                .format( avg_systolic, avg_diastolic, avg_pulse))
+            print("{:^17}{:.0f}/{:.0f} {:.0f}"
+                .format("Average:",
+                avg_systolic, avg_diastolic, avg_pulse))
         else:
             print("No readings to average.")
 else:
