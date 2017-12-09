@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 # File: bp.py
 
 """
@@ -7,138 +8,164 @@ If this is removed, the script will probably run on earlier versions
 including 2.7.
 
 Usage:
-    python bp.py FILE [> outfile]
-    python bp.py test
+    python bp.py FILE [> summary-of-BP-readings]
 
-Reads a file and in each line looks for a time stamp of the format
-returned by the date utility.  Each line with such a time stamp is
-replaced by just the hour and minutes part without the seconds, the
-time zone and the year components.
-The day of week and date components are not disturbed.
-Provided also is the ability to specify a 'header' line and 
-its 'underline' so that these can also be replaced. For this, you'd
-have to modify the source.
-The year is entered as a separate line above any sequence of lines
-the originals of which all share the same year.
-The input file is specified as the first parameter. 
-Output goes to stdout.
+FILE is expected to be a text file beginning with some header text
+and then possibly two lines defined by the constants INPUT_HEADER
+and INPUT_UNDERLINE. If you modify either of these, you'll probably
+also want to modify CUSTOM_HEADER and CUSTOM_UNDERLINE to match.
+Following that it expects to find lines beginning with out put of
+the `date` command followed by a space and the SYS/DIA space PULSE
+readings provided by standard home blood preasure reading device.
+The following is an example of such a line:
+Sun Sep 24 09:18:48 PDT 2017 129/67 59
+The accompanying `bps.txt` file provides an example FILE.
 
-If the fist parameter is 'test', the test function is run.
-
-Works with both python v2.7 and v3 up to and including v3.6
+The output is directed to `StdOut` (and can hence be redirected to
+a text file of your choice) and consists of a more compact version
+of the data as well as an over all average, suitable for printing
+and submitting to your health care provider.
 """
 
 import re
 import sys
 from typing import Union, List
 
-sample: str = """
-Sun Sep 24 09:18:48 PDT 2017 129/67 59 +
-          ^     ^  ^   ^    ^
-          |     |  |   |    |
-          |     |  |   |     --29
-          |     |  |    -------24
-          |     |   -----------20
-          |      --------------17
-           --------------------11
-"""
+# Constants:
+COLUMN_WIDTH = 35
 
-year: Union[str, None] = None
+INPUT_HEADER: str = "Day Date   Time         Year sys/di pulse"
+INPUT_UNDERLINE: str = "--- ------ ------------ ---- --- -- --"
 
-time_re: str = r'\b\d{2,2}:\d{2,2}:\d{2,2}\b'
-time_pattern = re.compile(time_re)
-year_re: str = r'\b\d{4}\b'
-year_pattern = re.compile(year_re)
-reading_re: str = r"""
+CUSTOM_HEADER: str = (
+    "Day Time   sys/di pulse       Day Time   sys/di pulse")
+CUSTOM_UNDERLINE: str = (
+"--- ----   -----  -----       --- ----   -----  -----")
+
+# Reg Ex:
+line_re: str = r"""
+[SMTWF][uoehra][neduit]  # week day- discarded
+[ ]
+(?P<month>[JFMAJSOND][aepuco][nbrylgptvc])
+[ ]
+(?P<date>[\s|\d]\d)
+[ ]
+(?P<time>\d\d:\d\d)
+:\d\d  # seconds- discarded
+[ ]
+[A-Z]{3,3}  # time zone- discarded
+[ ]
+(?P<year>\d{4,4})
 [ ]
 (?P<systolic>\d{2,3})
-/
+[/]
 (?P<diastolic>\d{2,3})
 [ ]
 (?P<pulse>\d{2,3})
 """
-reading_pattern = re.compile(reading_re, re.VERBOSE)
+line_pattern = re.compile(line_re, re.VERBOSE)
+
+# Globals:
+headers_printed = False
+month: Union[str, None] = None
+year: Union[str, None] = None
 n_readings = sum_systolic = sum_diastolic = sum_pulse = 0
+readings = []
+superfluous_lines = []
 
-header: str = "Day Date   Time         Year sys/di pulse"
-underline: str = "--- ------ ------------ ---- --- -- --"
+def process_non_reading(line: str) -> str:
+    if not ((INPUT_HEADER in line) or (INPUT_UNDERLINE in line)):
+        return line.strip()
 
-replacement_header: str = "Day Date   Time  sys/di pulse"
-replacement_underline: str = "--- ------ ----- --- -- --"
-
-def process_header(line: str) -> Union[str, None]:
-    if header in line:
-        return replacement_header
-    elif underline in line:
-        return replacement_underline
-    else:
-        return None
-
-def process_line(line: str) -> str:
-    global year, n_readings, sum_systolic, sum_diastolic, sum_pulse
-    header: str = process_header(line)
-    if header:
-        return header
-    match_object = time_pattern.search(line)
-    if match_object:
-        reading_match = reading_pattern.search(line)
-        if reading_match:
+def clear_readings():
+    global readings, headers_printed
+    #### DEBUG ####
+#   print("DEBUG:")
+#   n = 0
+#   for reading in readings:
+#       n += 1
+#       print("{:>3d}. {}".format(n, reading))
+#   print("end of DEBUG")
+    #### END DEBUG ####
+    n_readings = len(readings)
+    if n_readings:
+        if not headers_printed:
+            print(CUSTOM_HEADER)
+            print(CUSTOM_UNDERLINE)
+            headers_printed = True
+        if n_readings % 2:
+            readings.append("")
             n_readings += 1
-            sum_systolic += int(reading_match.group("systolic"))
-            sum_diastolic += int(reading_match.group("diastolic"))
-            sum_pulse += int(reading_match.group("pulse"))
-        else:
-            print("No bp|pulse matched in {}".format(line))
-        ret: List[str] = []
-        b, e = match_object.span()
-        match_object = year_pattern.search(line)
-        if match_object:
-            yr: str = match_object.group()
-            if year != yr:
-                year = yr
-                ret.append(yr)
-        new_data_line: str = line[:b + 5] + line[e + 9:]
-        ret.append(new_data_line.rstrip())
-        return '\n'.join(ret)
-    else:
-        return line.rstrip()
+        half_n = n_readings//2
+        terminator = half_n
+        i = 0
+        while i < terminator:
+            print("{}        {}".format(
+                readings[i], readings[half_n + i]))
+            i += 1
+        readings = []
 
-def test() -> None:
-    """
-    Each line of the 'sample' gets printed more than once.
-    The sample begins with a blank line, and as is true for
-    all lines that don't 'match' (i.e. contain a time stamp)
-    it is reproduced twice. Lines that do match, appear
-    four times.
-    """
-    print("Running a test- read the test docstring to make sense!")
-    for line in sample.split('\n'):
-        print(process_line(line))
-        match_object = time_pattern.search(line)
-        if match_object:
-            b, e = match_object.span()
-            print(line)
-            modified_line = line[:b + 5] + line[e + 9:]
-            print(modified_line)
-            print(match_object.span())
-        print(line)
+def process_line(line: str):
+    """-> str"""
+    global sum_systolic, sum_diastolic, sum_pulse
+    global year, month, readings, n_readings
+    global superfluous_lines
+    match = line_pattern.search(line)
+    if match:
+        matched = True
+        mo = match.group("month")
+        date = match.group("date")
+        time = match.group("time")
+        yr = match.group("year")
+        systolic = match.group("systolic")
+        diastolic = match.group("diastolic")
+        pulse = match.group("pulse")
+        n_readings += 1
+        sum_systolic += int(systolic)
+        sum_diastolic += int(diastolic)
+        sum_pulse += int(pulse)
+        if year != yr or month != mo:
+            clear_readings()
+            year = yr
+            month = mo
+            print("{} {}:".format(year, month))
+        readings.append("{:>2}: {}: {:>3}/{:<3} {:>3}".format(
+            date, time, systolic, diastolic, pulse))
+    else:
+        if readings:
+            current_reading = readings[-1]
+            clear_readings()
+        _line = process_non_reading(line) 
+        if _line:
+            if headers_printed:
+                superfluous_lines.append((year, month, current_reading, _line))
+            else:
+                print(_line)
+
 
 if len(sys.argv) > 1:
-    if sys.argv[1] == "test":
-        test()
+    with open(sys.argv[1], 'r') as f_object:
+        for line in f_object:
+            process_line(line)
+    if n_readings:
+        avg_systolic = (sum_systolic/n_readings)
+        avg_diastolic = (sum_diastolic/n_readings)
+        avg_pulse = (sum_pulse/n_readings)
+        print()
+        print("{:^25}{:.0f}/{:.0f} {:.0f}"
+            .format("Overall Average:",
+            avg_systolic, avg_diastolic, avg_pulse))
+        if superfluous_lines:
+            print()
+            print(
+            "Superfluous lines with readings after which they occured")
+            print(
+            "--------------------------------------------------------")
+            for year, month, cur_r, sup_line in superfluous_lines:
+                print("Line after '{}{}{}' is:  {}".format(
+                    year, month, cur_r, sup_line))
     else:
-        with open(sys.argv[1], 'r') as f_object:
-            for line in f_object:
-                print(process_line(line))
-        if n_readings:
-            avg_systolic = (sum_systolic/n_readings)
-            avg_diastolic = (sum_diastolic/n_readings)
-            avg_pulse = (sum_pulse/n_readings)
-            print("{:^17}{:.0f}/{:.0f} {:.0f}"
-                .format("Average:",
-                avg_systolic, avg_diastolic, avg_pulse))
-        else:
-            print("No readings to average.")
+        print("No readings to average.")
 else:
     print(
 "No command line argument (an input file would be nice) provided.")
