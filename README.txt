@@ -9,6 +9,10 @@ The problem was that the date output included much more than was
 necessary so this script was written to shorten each line- also the
 year was made into a group header instead of appearing on each line.
 
+Development then moved towards presenting the data in two columns to
+keep the listing shorther.  In future perhaps we could go to three
+columns- or make that configurable, say with a command line option.
+
 A typical source file is provided: bp.source
 
 Python 3.6 syntax is used: specifically some static typing is
