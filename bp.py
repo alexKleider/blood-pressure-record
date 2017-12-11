@@ -12,12 +12,11 @@ Usage:
 
 FILE is expected to be a text file beginning with some header text
 and then possibly two lines defined by the constants INPUT_HEADER
-and INPUT_UNDERLINE. If you modify either of these, you'll probably
-also want to modify CUSTOM_HEADER and CUSTOM_UNDERLINE to match.
-Following that it expects to find lines beginning with out put of
-the `date` command followed by a space and the SYS/DIA space PULSE
-readings provided by standard home blood preasure reading device.
-The following is an example of such a line:
+and INPUT_UNDERLINE.  Following that it expects to find lines
+beginning with out put of the `date` command followed by a space
+and the SYS/DIA space PULSE readings provided by standard home
+blood preasure reading device.  The following is an example of
+such a line:
 Sun Sep 24 09:18:48 PDT 2017 129/67 59
 The accompanying `bps.txt` file provides an example FILE.
 
@@ -32,15 +31,22 @@ import sys
 from typing import Union, List
 
 # Constants:
-COLUMN_WIDTH = 35
+N_COLUMNS = 4
 
-INPUT_HEADER: str = "Day Date   Time         Year sys/di pulse"
+INPUT_HEADER: str =    "Day Date   Time         Year sys/di pulse"
 INPUT_UNDERLINE: str = "--- ------ ------------ ---- --- -- --"
 
-CUSTOM_HEADER: str = (
-    "Day Time   sys/di pulse       Day Time   sys/di pulse")
-CUSTOM_UNDERLINE: str = (
-"--- ----   -----  -----       --- ----   -----  -----")
+COLUMN_SPACER: str = ("     ")
+COLUMN_HEADER: str =    ("Day Time   sys/di pulse")
+COLUMN_UNDERLINE: str = ("--- ----   -----  -----")
+FORMATTER = "{}"
+header_line: str = COLUMN_HEADER
+underline: str = COLUMN_UNDERLINE 
+formatting_string: str = FORMATTER
+for n in range(1, N_COLUMNS):
+    header_line = header_line + COLUMN_SPACER + COLUMN_HEADER
+    underline = underline + COLUMN_SPACER + COLUMN_UNDERLINE
+    formatting_string = formatting_string + COLUMN_SPACER + FORMATTER
 
 # Reg Ex:
 line_re: str = r"""
@@ -90,29 +96,33 @@ def clear_readings():
     n_readings = len(readings)
     if n_readings:
         if not headers_printed:
-            print(CUSTOM_HEADER)
-            print(CUSTOM_UNDERLINE)
+            print(header_line)
+            print(underline)
             headers_printed = True
-        if n_readings % 2:
-            readings.append("")
-            n_readings += 1
-        half_n = n_readings//2
-        terminator = half_n
+        modulo = n_readings % N_COLUMNS
+        if modulo:
+            for i in range(modulo):
+                readings.append("")
+                n_readings += 1
+        fraction_of_n = n_readings//N_COLUMNS
+        terminator = fraction_of_n
         i = 0
         while i < terminator:
-            print("{}        {}".format(
-                readings[i], readings[half_n + i]))
+            tup = (readings[i], )
+            for j in range(1, N_COLUMNS):
+                tup = (*tup, readings[i + fraction_of_n * j])
+
+
+            print(formatting_string.format(*tup))
             i += 1
         readings = []
 
 def process_line(line: str):
-    """-> str"""
     global sum_systolic, sum_diastolic, sum_pulse
     global year, month, readings, n_readings
     global superfluous_lines
     match = line_pattern.search(line)
-    if match:
-        matched = True
+    if match:  # it's a reading
         mo = match.group("month")
         date = match.group("date")
         time = match.group("time")
@@ -129,12 +139,16 @@ def process_line(line: str):
             year = yr
             month = mo
             print("{} {}:".format(year, month))
-        readings.append("{:>2}: {}: {:>3}/{:<3} {:>3}".format(
+        readings.append("{:>2}: {}: {:>3}/{:<3} {:>3} ".format(
             date, time, systolic, diastolic, pulse))
-    else:
+    else:  # line is not a BP reading.
         if readings:
-            current_reading = readings[-1]
+            current_reading = readings[-1]  # Save the reading so
+            #                          can report were non reading
+            #                          line was found.
             clear_readings()
+        else:
+            current_reading = "No reading yet"
         _line = process_non_reading(line) 
         if _line:
             if headers_printed:
@@ -147,6 +161,7 @@ if len(sys.argv) > 1:
     with open(sys.argv[1], 'r') as f_object:
         for line in f_object:
             process_line(line)
+    clear_readings()
     if n_readings:
         avg_systolic = (sum_systolic/n_readings)
         avg_diastolic = (sum_diastolic/n_readings)
@@ -162,7 +177,7 @@ if len(sys.argv) > 1:
             print(
             "--------------------------------------------------------")
             for year, month, cur_r, sup_line in superfluous_lines:
-                print("Line after '{}{}{}' is:  {}".format(
+                print("Line after '{} {}{}' is:  {}".format(
                     year, month, cur_r, sup_line))
     else:
         print("No readings to average.")
