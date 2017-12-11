@@ -101,8 +101,8 @@ def clear_readings():
             headers_printed = True
         modulo = n_readings % N_COLUMNS
         if modulo:
-            for i in range(modulo):
-                readings.append("")
+            for i in range(N_COLUMNS - modulo):
+                readings.append(COLUMN_UNDERLINE)
                 n_readings += 1
         fraction_of_n = n_readings//N_COLUMNS
         terminator = fraction_of_n
