@@ -30,9 +30,14 @@ import re
 import sys
 from typing import Union, List
 
-# Constants:
-N_COLUMNS = 4
+# Configurable "constants" (eventually
+# make them command line options?)
+N_COLUMNS = 2
+SYS = 140  # set to 0 if don't want a systolic threshold alarm.
+ALARM = '!'  # must be a single character; set to ' ' if don't
+            # want high systolics flagged.
 
+# Constants:
 INPUT_HEADER: str =    "Day Date   Time         Year sys/di pulse"
 INPUT_UNDERLINE: str = "--- ------ ------------ ---- --- -- --"
 
@@ -73,10 +78,12 @@ line_pattern = re.compile(line_re, re.VERBOSE)
 
 # Globals:
 headers_printed = False
+alarm_declared = False
 month: Union[str, None] = None
 year: Union[str, None] = None
 n_readings = sum_systolic = sum_diastolic = sum_pulse = 0
 readings = []
+high_systolics = []
 superfluous_lines = []
 
 def process_non_reading(line: str) -> str:
@@ -85,6 +92,7 @@ def process_non_reading(line: str) -> str:
 
 def clear_readings():
     global readings, headers_printed
+    ## NOTE: n_readings here is NOT the global one.
     #### DEBUG ####
 #   print("DEBUG:")
 #   n = 0
@@ -120,9 +128,14 @@ def clear_readings():
 def process_line(line: str):
     global sum_systolic, sum_diastolic, sum_pulse
     global year, month, readings, n_readings
-    global superfluous_lines
+    global superfluous_lines, high_systolics
+    global headers_printed, alarm_declared
     match = line_pattern.search(line)
     if match:  # it's a reading
+        if not headers_printed and  not alarm_declared and SYS:
+            print("Systolic alarm ('{}') threshold set to {}.".format
+                (ALARM, SYS))
+            alarm_declared = True
         mo = match.group("month")
         date = match.group("date")
         time = match.group("time")
@@ -131,6 +144,8 @@ def process_line(line: str):
         diastolic = match.group("diastolic")
         pulse = match.group("pulse")
         n_readings += 1
+        if SYS and int(systolic) > SYS:
+            high_systolics.append(int(systolic))
         sum_systolic += int(systolic)
         sum_diastolic += int(diastolic)
         sum_pulse += int(pulse)
@@ -139,8 +154,12 @@ def process_line(line: str):
             year = yr
             month = mo
             print("{} {}:".format(year, month))
-        readings.append("{:>2}: {}: {:>3}/{:<3} {:>3} ".format(
-            date, time, systolic, diastolic, pulse))
+        if int(systolic) > SYS:
+            alarm = ALARM
+        else:
+            alarm = " "
+        readings.append("{:>2}: {}: {:>3}/{:<3}{}{:>3} ".format(
+            date, time, systolic, diastolic, alarm, pulse))
     else:  # line is not a BP reading.
         if readings:
             current_reading = readings[-1]  # Save the reading so
@@ -170,6 +189,19 @@ if len(sys.argv) > 1:
         print("{:^25}{:.0f}/{:.0f} {:.0f}"
             .format("Overall Average:",
             avg_systolic, avg_diastolic, avg_pulse))
+        n_highs = len(high_systolics)
+        sys = SYS
+        while n_highs:
+            print(
+            "Note: {:>3} of {:>3} systolic readings were above {:>3}."
+                .format(n_highs, n_readings, sys))
+            sys = sys + 10
+            next_level = [reading for reading in high_systolics
+                    if reading > sys]
+            n_highs = len(next_level)
+
+                
+                
         if superfluous_lines:
             print()
             print(

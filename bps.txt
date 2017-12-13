@@ -1,5 +1,4 @@
-Blood pressure readings taken AFTER a two week
-period following the last antihipertensive taken:
+Blood pressure readings off antihipertensives:
 
 Day Date   Time         Year sys/di pulse
 --- ------ ------------ ---- --- -- --
@@ -78,4 +77,9 @@ Fri Dec  8 10:08:30 PST 2017 125/61 68
 Sat Dec  9 09:37:21 PST 2017 133/77 65
 Sun Dec 10 13:11:43 PST 2017 124/67 61
 Sun Dec 10 21:36:16 PST 2017 142/71 62
+Mon Dec 11 11:22:40 PST 2017 129/68 61
+Tue Dec 12 14:42:58 PST 2017 144/81 66
+Tue Dec 12 17:44:55 PST 2017 146/84 64
+Wed Dec 13 10:09:10 PST 2017 124/71 57
+
 
