@@ -32,7 +32,7 @@ from typing import Union, List
 
 # Configurable "constants" (eventually
 # make them command line options?)
-N_COLUMNS = 2
+N_COLUMNS = 4
 SYS = 140  # set to 0 if don't want a systolic threshold alarm.
 ALARM = '!'  # must be a single character; set to ' ' if don't
             # want high systolics flagged.
