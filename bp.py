@@ -8,9 +8,16 @@ If this is removed, the script will probably run on earlier versions
 including 2.7.
 
 Usage:
-    python bp.py FILE [> summary-of-BP-readings]
+    t.py [-c n -a char -t sysbp] INFILE
 
-FILE is expected to be a text file beginning with some header text
+Options:
+    -c n, --columns=n  Specify number of columns.  [default: 2]
+    -a char, --alarm=char  Specify the alarm character. [default: !]
+    -t sysbp, --threashold=sysbp  Specify a threashold systolic blood
+    preasure which will trigger the alarm character to be displayed
+    [default: 135]
+
+INFILE is expected to be a text file beginning with some header text
 and then possibly two lines defined by the constants INPUT_HEADER
 and INPUT_UNDERLINE.  Following that it expects to find lines
 beginning with out put of the `date` command followed by a space
@@ -18,24 +25,50 @@ and the SYS/DIA space PULSE readings provided by standard home
 blood preasure reading device.  The following is an example of
 such a line:
 Sun Sep 24 09:18:48 PDT 2017 129/67 59
-The accompanying `bps.txt` file provides an example FILE.
+The accompanying `bps.txt` file provides an example INFILE.
 
 The output is directed to `StdOut` (and can hence be redirected to
-a text file of your choice) and consists of a more compact version
-of the data as well as an over all average, suitable for printing
-and submitting to your health care provider.
+a text file of your choice.) It consists of a more compact version
+of the data suitable for printing and submitting to your health care
+provider. An average and break down of worrisome elevated values is
+also included. By default it is presented in two columns but this can
+be specified by the argument to the <columns> option.
 """
 
 import re
 import sys
 from typing import Union, List
+import docopt
+args = docopt.docopt(__doc__, version="v0.0")
+#print(args)
 
-# Configurable "constants" (eventually
-# make them command line options?)
-N_COLUMNS = 4
-SYS = 140  # set to 0 if don't want a systolic threshold alarm.
-ALARM = '!'  # must be a single character; set to ' ' if don't
-            # want high systolics flagged.
+# Configurable "constants" come from command line via docopt:
+try:
+    N_COLUMNS = int(args["--columns"])
+except TypeError:
+    print("'--columns' option must be an integer (and >0.)")
+    exit()
+if not N_COLUMNS > 0:
+    print("'--columns' option must be an integer >0.")
+    print("...changing it to the default of 2.")
+    N_COLUMNS = 2
+try:
+  SYS = int(args["--threashold"])
+except TypeError:
+    print("'--threashold' option must be an integer.")
+    exit()
+if SYS < 0:
+    print(
+    "'--threashold' option can not be <0. Being set to 0- not used")
+if not sys:
+    ALARM = " "
+else:
+    ALARM = args["--alarm"]
+    if len(ALARM) > 2:
+        args["--alarm"] = args["--alarm"][1:-1]
+    if len(ALARM) > 1:
+        print("'--alarm' must be a single character: changing it to '!'.")
+        ALARM = '!'
 
 # Constants:
 INPUT_HEADER: str =    "Day Date   Time         Year sys/di pulse"
@@ -175,45 +208,56 @@ def process_line(line: str):
             else:
                 print(_line)
 
-
-if len(sys.argv) > 1:
-    with open(sys.argv[1], 'r') as f_object:
+def main():
+    global headers_printed, alarm_declared, month
+    global year, n_readings, sum_systolic, sum_diastolic, sum_pulse
+    global readings, high_systolics, superfluous_lines
+    with open(args["INFILE"], 'r') as f_object:
         for line in f_object:
             process_line(line)
     clear_readings()
     if n_readings:
+
         avg_systolic = (sum_systolic/n_readings)
         avg_diastolic = (sum_diastolic/n_readings)
         avg_pulse = (sum_pulse/n_readings)
         print()
-        print("{:^25}{:.0f}/{:.0f} {:.0f}"
-            .format("Overall Average:",
-            avg_systolic, avg_diastolic, avg_pulse))
+        print(
+        "\tFor a total of {} readings, average is {:.0f}/{:.0f} {:.0f}"
+            .format(n_readings, avg_systolic, avg_diastolic, avg_pulse)
+        )
         n_highs = len(high_systolics)
-        sys = SYS
-        while n_highs:
-            print(
-            "Note: {:>3} of {:>3} systolic readings were above {:>3}."
-                .format(n_highs, n_readings, sys))
-            sys = sys + 10
-            next_level = [reading for reading in high_systolics
-                    if reading > sys]
-            n_highs = len(next_level)
+        if n_highs and SYS:
+            sys = SYS
+            preamble1 = ("Of the {} (systolic) readings: "
+                .format(n_readings))
+            preamble2 = " " * len(preamble1)
+            preamble = preamble1
+            while n_highs:
+                print("{}{:>3} were above {:>3}."
+                    .format(preamble, n_highs, sys))
+                preamble = preamble2
+                sys = sys + 10
+                next_level = [reading for reading in high_systolics
+                        if reading > sys]
+                n_highs = len(next_level)
 
-                
-                
-        if superfluous_lines:
-            print()
-            print(
-            "Superfluous lines with readings after which they occured")
-            print(
-            "--------------------------------------------------------")
-            for year, month, cur_r, sup_line in superfluous_lines:
-                print("Line after '{} {}{}' is:  {}".format(
-                    year, month, cur_r, sup_line))
+        elif SYS:
+            print("There are no systolics over the threashold")
     else:
         print("No readings to average.")
-else:
-    print(
-"No command line argument (an input file would be nice) provided.")
 
+    if superfluous_lines:
+        print()
+        print(
+        "Superfluous lines with readings after which they occured")
+        print(
+        "--------------------------------------------------------")
+        for year, month, cur_r, sup_line in superfluous_lines:
+            print("Line after '{} {}{}' is:  {}".format(
+                year, month, cur_r, sup_line))
+            
+            
+if __name__ == "__main__":
+    print(args)
+    main()
