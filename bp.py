@@ -8,14 +8,18 @@ If this is removed, the script will probably run on earlier versions
 including 2.7.
 
 Usage:
-    t.py [-c n -a char -t sysbp] INFILE
+    t.py [-c n -a char -t sysbp] -r INFILE
 
 Options:
-    -c n, --columns=n  Specify number of columns.  [default: 2]
-    -a char, --alarm=char  Specify the alarm character. [default: !]
-    -t sysbp, --threashold=sysbp  Specify a threashold systolic blood
+    -h --help     Show this screen.
+    --version     Show version.
+    -c <n>, --columns=<n>  Specify number of columns.  [default: 2]
+    -a <char>, --alarm=<char>  Specify the alarm character. [default: !]
+    -t <sysbp>, --threashold=<sysbp>  Specify a threashold systolic blood
     preasure which will trigger the alarm character to be displayed
-    [default: 135]
+    [default: 0]
+    -r --report  Report how the American Heart Association criteria
+    apply.
 
 INFILE is expected to be a text file beginning with some header text
 and then possibly two lines defined by the constants INPUT_HEADER
@@ -33,6 +37,22 @@ of the data suitable for printing and submitting to your health care
 provider. An average and break down of worrisome elevated values is
 also included. By default it is presented in two columns but this can
 be specified by the argument to the <columns> option.
+
+
+Blood preasure criteria for hypertension according to the American
+Heart Association[1]
+
+BLOOD PRESSURE CATEGORY   SYSTOLIC   &/or DIASTOLIC
+-----------------------   --------   ---- ---------
+NORMAL                     < 120      &     < 80
+ELEVATED                  120 – 129   &     < 80
+(HYPERTENSION) STAGE 1    130 – 139   or    80 – 89
+(HYPERTENSION) STAGE 2     >= 140     or    >= 90
+HYPERTENSIVE CRISIS        > 180     &/or   >= 120
+
+[1]
+http://www.heart.org/HEARTORG/Conditions/HighBloodPressure/KnowYourNumbers/Understanding-Blood-Pressure-Readings_UCM_301764_Article.jsp#.WjW1DfZry1I
+
 """
 
 import re
@@ -47,7 +67,7 @@ try:
     N_COLUMNS = int(args["--columns"])
 except TypeError:
     print("'--columns' option must be an integer (and >0.)")
-    exit()
+    sys.exit()
 if not N_COLUMNS > 0:
     print("'--columns' option must be an integer >0.")
     print("...changing it to the default of 2.")
@@ -56,11 +76,11 @@ try:
   SYS = int(args["--threashold"])
 except TypeError:
     print("'--threashold' option must be an integer.")
-    exit()
+    sys.exit()
 if SYS < 0:
     print(
     "'--threashold' option can not be <0. Being set to 0- not used")
-if not sys:
+if not SYS:
     ALARM = " "
 else:
     ALARM = args["--alarm"]
@@ -69,6 +89,7 @@ else:
     if len(ALARM) > 1:
         print("'--alarm' must be a single character: changing it to '!'.")
         ALARM = '!'
+AHA = args["--report"]
 
 # Constants:
 INPUT_HEADER: str =    "Day Date   Time         Year sys/di pulse"
@@ -115,9 +136,48 @@ alarm_declared = False
 month: Union[str, None] = None
 year: Union[str, None] = None
 n_readings = sum_systolic = sum_diastolic = sum_pulse = 0
+n_normal = n_crisis = n_stage2 = n_stage1 = n_elevated = 0
 readings = []
 high_systolics = []
 superfluous_lines = []
+
+def crisis(sys, dia):
+    """>180 &/or >=120"""
+    if (sys > 180) or (dia >= 120):
+        return True
+
+def stage2(sys, dia):
+    """>=140 or >=90"""
+    if sys >= 140 or dia >= 90:
+        return True
+
+def stage1(sys, dia):
+    """130–139 or 80–89"""
+    if ((sys >= 130 and sys < 140) or
+        (dia >= 80 and dia < 90)):
+        return True
+
+def elevated(sys, dia):
+    """120–129 & <80"""
+    if ((sys >= 120 and sys < 130) and 
+        (dia < 80)):
+        return True
+
+def normal(sys, dia):
+    """< 120 & < 80"""
+    if sys < 120 and dia < 80:
+        return True
+
+def aha_increment(sys, dia):
+    global n_normal, n_crisis, n_stage2, n_stage1, n_elevated
+    if normal(sys, dia): n_normal += 1
+    elif crisis(sys, dia): n_crisis += 1
+    elif stage1(sys, dia): n_stage1 += 1
+    elif stage2(sys, dia): n_stage2 += 1
+    elif elevated(sys, dia): n_elevated += 1
+    else:
+        print(
+        "Shouldn't happen! Something is wrong! Uncharacterized BP.")
 
 def process_non_reading(line: str) -> str:
     if not ((INPUT_HEADER in line) or (INPUT_UNDERLINE in line)):
@@ -136,10 +196,6 @@ def clear_readings():
     #### END DEBUG ####
     n_readings = len(readings)
     if n_readings:
-        if not headers_printed:
-            print(header_line)
-            print(underline)
-            headers_printed = True
         modulo = n_readings % N_COLUMNS
         if modulo:
             for i in range(N_COLUMNS - modulo):
@@ -163,18 +219,24 @@ def process_line(line: str):
     global year, month, readings, n_readings
     global superfluous_lines, high_systolics
     global headers_printed, alarm_declared
+    global n_normal, n_crisis, n_stage2, n_stage1, n_elevated
     match = line_pattern.search(line)
     if match:  # it's a reading
-        if not headers_printed and  not alarm_declared and SYS:
+        if not alarm_declared and SYS:
             print("Systolic alarm ('{}') threshold set to {}.".format
                 (ALARM, SYS))
             alarm_declared = True
+        if not headers_printed:
+            print(header_line)
+            print(underline)
+            headers_printed = True
         mo = match.group("month")
         date = match.group("date")
         time = match.group("time")
         yr = match.group("year")
         systolic = match.group("systolic")
         diastolic = match.group("diastolic")
+        aha_increment(int(systolic), int(diastolic))
         pulse = match.group("pulse")
         n_readings += 1
         if SYS and int(systolic) > SYS:
@@ -212,12 +274,12 @@ def main():
     global headers_printed, alarm_declared, month
     global year, n_readings, sum_systolic, sum_diastolic, sum_pulse
     global readings, high_systolics, superfluous_lines
+    global n_normal, n_crisis, n_stage2, n_stage1, n_elevated
     with open(args["INFILE"], 'r') as f_object:
         for line in f_object:
             process_line(line)
     clear_readings()
     if n_readings:
-
         avg_systolic = (sum_systolic/n_readings)
         avg_diastolic = (sum_diastolic/n_readings)
         avg_pulse = (sum_pulse/n_readings)
@@ -228,19 +290,35 @@ def main():
         )
         n_highs = len(high_systolics)
         if n_highs and SYS:
-            sys = SYS
+            sysbp = SYS
             preamble1 = ("Of the {} (systolic) readings: "
                 .format(n_readings))
             preamble2 = " " * len(preamble1)
             preamble = preamble1
             while n_highs:
                 print("{}{:>3} were above {:>3}."
-                    .format(preamble, n_highs, sys))
+                    .format(preamble, n_highs, sysbp))
                 preamble = preamble2
-                sys = sys + 10
+                sysbp = sysbp + 10
                 next_level = [reading for reading in high_systolics
-                        if reading > sys]
+                        if reading > sysbp]
                 n_highs = len(next_level)
+        if AHA:
+            print()
+            print("American Heart Association")
+            print(
+            "      Category: criteria                Number of Readings")
+            print(
+            "      ------------------                ------------------")
+            for category, n in (
+                ('Normal: <120 Sys and <80 Diastolic', n_normal),
+                ('Elevated: 120–129 Sys and <80 Diastolic', n_elevated),
+                ('Stage 1: 130–139 Sys or 80–89 Diastolic', n_stage1),
+                ('Stage 2: >=140 Sys or >=90 Diastolic', n_stage2),
+                ('Crisis: >180 Sys and/or >120 Diastolic' , n_crisis),
+                ):
+                if n:
+                    print("{:^40}   {:^5}".format(category, n))
 
         elif SYS:
             print("There are no systolics over the threashold")
@@ -259,5 +337,5 @@ def main():
             
             
 if __name__ == "__main__":
-    print(args)
+#   print(args)
     main()

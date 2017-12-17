@@ -11,10 +11,19 @@ year was made into a group header instead of appearing on each line.
 
 Development then moved towards presenting the data in two columns to
 keep the listing shorther.  In the current iteration, one can use
-command line arguments to set the number of columns.  Also added has
+command line arguments to set the number of columns to any integer.  Also added has
 been the ability to set a threashold systolic reading and when so set,
-readings that exceede this limit are marked by an alarm character and
+readings that exceede this limit are marked by an configurable alarm
+character (which can also be set as a command line parameter) and
 then reported separately.
+
+Finally, another command line option was added to have the output
+report how many readings fell into each of the American Heart
+Association's 5 categories.
+
+    ./bp.py --help
+
+for details.
 
 A typical source file is provided: bp.source
 
