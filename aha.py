@@ -89,36 +89,42 @@ class AHA(object):
         dict(  # 4
             level = '4',
             name = "Crisis",
+            expanded_name = "Crisis level hypertension!",
             count = 0,
             f = crisis,
             ),
         dict(  # 3
             level = '3',
             name = "Stage 2",
+            expanded_name = "Stage 2 hypertension",
             count = 0,
             f = stage2,
             ),
         dict(  # 2
             level = '2',
             name = "Stage 1",
+            expanded_name = "Stage 1 hypertension",
             count = 0,
             f= stage1,
             ),
         dict(  # 1
             level = '1',
             name = "Elevated",
+            expanded_name = "Elevated blood pressure",
             count = 0,
             f = elevated,
             ),
         dict(  # 0
             level = ' ',
             name = "Normal",
+            expanded_name = "Normal blood pressure",
             count = 0,
             f = normal,
             ),
         dict(  # 5  # only to catch errors of logic.
             level = '5',
             name = "Misc",
+            expanded_name = "Misc- if this appears it's an error!",
             count = 0,
             f = misc,
             ),
@@ -170,7 +176,7 @@ class AHA(object):
 
 
     def which_category(self, systolic, diastolic, display_item="name"):
-        """ display_item can be 'name' or 'level'"""
+        """ display_item can be 'name', 'expanded_name or 'level'"""
         for category in self.categories:
             if category['f'](systolic, diastolic):
                 # have found the appropriate category

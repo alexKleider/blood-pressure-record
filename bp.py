@@ -18,7 +18,10 @@ Options:
     preasure which will trigger the alarm character to be displayed
     [default: 0]
     -r --report  Report how the American Heart Association criteria
-    apply.
+    apply. Each elevated pressure reading will be separated by its
+    corresponding pulse reading by a digit representing how elevated
+    the pressure is- ' ' if normal, '1' = elevated, '2' = stage 1,
+    '3' = stage 2, '4' = crisis.
 
 INFILE is expected to be a text file beginning with some header text
 and then possibly two lines defined by the constants INPUT_HEADER
@@ -220,13 +223,18 @@ def main():
         avg_systolic = (aha.running_sys_total/aha.n_readings)
         avg_diastolic = (aha.running_dia_total/aha.n_readings)
         avg_pulse = (aha.running_pulse_total/aha.n_readings)
-        print()
+#       print()
         print(
         "\tFor a total of {} readings, average is {:.0f}/{:.0f} {:.0f}"
             .format(aha.n_readings,
-                aha.running_sys_total,
-                aha.running_dia_total,
-                aha.running_pulse_total)
+                aha.running_sys_total/aha.n_readings,
+                aha.running_dia_total/aha.n_readings,
+                aha.running_pulse_total/aha.n_readings)
+        + "  That's '{}'.".format(aha.which_category(
+                aha.running_sys_total/aha.n_readings,
+                aha.running_dia_total/aha.n_readings,
+                "expanded_name"
+            ))
         )
         n_highs = len(high_systolics)
         if n_highs and SYS:
@@ -244,7 +252,7 @@ def main():
                         if reading > sysbp]
                 n_highs = len(next_level)
         elif args["--report"]:
-            print()
+#           print()
             for line in aha.show_category_breakdown(
                 with_headers=True):
                 print(line)
