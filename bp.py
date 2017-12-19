@@ -3,12 +3,11 @@
 # File: bp.py
 
 """
-Requires python 3.6 but only because of the static typing syntax.
-If this is removed, the script will probably run on earlier versions
-including 2.7.
+A Python utility to help analyse blood presure (and pulse) recordings.
 
 Usage:
-    t.py [-c n -a char -t sysbp] -r INFILE
+    t.py [-c n -a char -t sysbp] INFILE
+    t.py [-c n -a char -r] INFILE
 
 Options:
     -h --help     Show this screen.
@@ -37,28 +36,14 @@ of the data suitable for printing and submitting to your health care
 provider. An average and break down of worrisome elevated values is
 also included. By default it is presented in two columns but this can
 be specified by the argument to the <columns> option.
-
-
-Blood preasure criteria for hypertension according to the American
-Heart Association[1]
-
-BLOOD PRESSURE CATEGORY   SYSTOLIC   &/or DIASTOLIC
------------------------   --------   ---- ---------
-NORMAL                     < 120      &     < 80
-ELEVATED                  120 – 129   &     < 80
-(HYPERTENSION) STAGE 1    130 – 139   or    80 – 89
-(HYPERTENSION) STAGE 2     >= 140     or    >= 90
-HYPERTENSIVE CRISIS        > 180     &/or   >= 120
-
-[1]
-http://www.heart.org/HEARTORG/Conditions/HighBloodPressure/KnowYourNumbers/Understanding-Blood-Pressure-Readings_UCM_301764_Article.jsp#.WjW1DfZry1I
-
 """
+
+from aha import AHA
 
 import re
 import sys
-from typing import Union, List
 import docopt
+
 args = docopt.docopt(__doc__, version="v0.0")
 #print(args)
 
@@ -89,7 +74,6 @@ else:
     if len(ALARM) > 1:
         print("'--alarm' must be a single character: changing it to '!'.")
         ALARM = '!'
-AHA = args["--report"]
 
 # Constants:
 INPUT_HEADER: str =    "Day Date   Time         Year sys/di pulse"
@@ -133,93 +117,48 @@ line_pattern = re.compile(line_re, re.VERBOSE)
 # Globals:
 headers_printed = False
 alarm_declared = False
-month: Union[str, None] = None
-year: Union[str, None] = None
-n_readings = sum_systolic = sum_diastolic = sum_pulse = 0
-n_normal = n_crisis = n_stage2 = n_stage1 = n_elevated = 0
-readings = []
+month = None
+year = None
+list_of_readings = []
 high_systolics = []
 superfluous_lines = []
-
-def crisis(sys, dia):
-    """>180 &/or >=120"""
-    if (sys > 180) or (dia >= 120):
-        return True
-
-def stage2(sys, dia):
-    """>=140 or >=90"""
-    if sys >= 140 or dia >= 90:
-        return True
-
-def stage1(sys, dia):
-    """130–139 or 80–89"""
-    if ((sys >= 130 and sys < 140) or
-        (dia >= 80 and dia < 90)):
-        return True
-
-def elevated(sys, dia):
-    """120–129 & <80"""
-    if ((sys >= 120 and sys < 130) and 
-        (dia < 80)):
-        return True
-
-def normal(sys, dia):
-    """< 120 & < 80"""
-    if sys < 120 and dia < 80:
-        return True
-
-def aha_increment(sys, dia):
-    global n_normal, n_crisis, n_stage2, n_stage1, n_elevated
-    if normal(sys, dia): n_normal += 1
-    elif crisis(sys, dia): n_crisis += 1
-    elif stage1(sys, dia): n_stage1 += 1
-    elif stage2(sys, dia): n_stage2 += 1
-    elif elevated(sys, dia): n_elevated += 1
-    else:
-        print(
-        "Shouldn't happen! Something is wrong! Uncharacterized BP.")
 
 def process_non_reading(line: str) -> str:
     if not ((INPUT_HEADER in line) or (INPUT_UNDERLINE in line)):
         return line.strip()
 
 def clear_readings():
-    global readings, headers_printed
-    ## NOTE: n_readings here is NOT the global one.
+    global list_of_readings, headers_printed
     #### DEBUG ####
 #   print("DEBUG:")
 #   n = 0
-#   for reading in readings:
+#   for reading in list_of_readings:
 #       n += 1
 #       print("{:>3d}. {}".format(n, reading))
 #   print("end of DEBUG")
     #### END DEBUG ####
-    n_readings = len(readings)
+    n_readings = len(list_of_readings)
     if n_readings:
         modulo = n_readings % N_COLUMNS
         if modulo:
             for i in range(N_COLUMNS - modulo):
-                readings.append(COLUMN_UNDERLINE)
+                list_of_readings.append(COLUMN_UNDERLINE)
                 n_readings += 1
         fraction_of_n = n_readings//N_COLUMNS
         terminator = fraction_of_n
         i = 0
         while i < terminator:
-            tup = (readings[i], )
+            tup = (list_of_readings[i], )
             for j in range(1, N_COLUMNS):
-                tup = (*tup, readings[i + fraction_of_n * j])
-
-
+                tup = (*tup, list_of_readings[i + fraction_of_n * j])
             print(formatting_string.format(*tup))
             i += 1
-        readings = []
+        list_of_readings = []
 
-def process_line(line: str):
-    global sum_systolic, sum_diastolic, sum_pulse
-    global year, month, readings, n_readings
+def process_line(line, aha):
+    global year, month, list_of_readings
     global superfluous_lines, high_systolics
     global headers_printed, alarm_declared
-    global n_normal, n_crisis, n_stage2, n_stage1, n_elevated
     match = line_pattern.search(line)
     if match:  # it's a reading
         if not alarm_declared and SYS:
@@ -234,30 +173,29 @@ def process_line(line: str):
         date = match.group("date")
         time = match.group("time")
         yr = match.group("year")
-        systolic = match.group("systolic")
-        diastolic = match.group("diastolic")
-        aha_increment(int(systolic), int(diastolic))
-        pulse = match.group("pulse")
-        n_readings += 1
-        if SYS and int(systolic) > SYS:
-            high_systolics.append(int(systolic))
-        sum_systolic += int(systolic)
-        sum_diastolic += int(diastolic)
-        sum_pulse += int(pulse)
+        systolic = int(match.group("systolic"))
+        diastolic = int(match.group("diastolic"))
+        pulse = int(match.group("pulse"))
+        if SYS and systolic > SYS:
+            high_systolics.append(systolic)
         if year != yr or month != mo:
             clear_readings()
             year = yr
             month = mo
             print("{} {}:".format(year, month))
-        if int(systolic) > SYS:
+        if args["--report"]:
+            alarm = aha.which_category(systolic, diastolic,
+                display_item="level")
+        elif systolic > SYS:
             alarm = ALARM
         else:
             alarm = " "
-        readings.append("{:>2}: {}: {:>3}/{:<3}{}{:>3} ".format(
+        list_of_readings.append("{:>2}: {}: {:>3}/{:<3}{}{:>3} ".format(
             date, time, systolic, diastolic, alarm, pulse))
+        aha.add_reading(systolic, diastolic, pulse)
     else:  # line is not a BP reading.
-        if readings:
-            current_reading = readings[-1]  # Save the reading so
+        if list_of_readings:
+            current_reading = list_of_readings[-1]  # Save the reading so
             #                          can report were non reading
             #                          line was found.
             clear_readings()
@@ -271,22 +209,24 @@ def process_line(line: str):
                 print(_line)
 
 def main():
-    global headers_printed, alarm_declared, month
-    global year, n_readings, sum_systolic, sum_diastolic, sum_pulse
-    global readings, high_systolics, superfluous_lines
-    global n_normal, n_crisis, n_stage2, n_stage1, n_elevated
+    aha = AHA()
+    global headers_printed, alarm_declared, month, year
+    global list_of_readings, high_systolics, superfluous_lines
     with open(args["INFILE"], 'r') as f_object:
         for line in f_object:
-            process_line(line)
+            process_line(line, aha)
     clear_readings()
-    if n_readings:
-        avg_systolic = (sum_systolic/n_readings)
-        avg_diastolic = (sum_diastolic/n_readings)
-        avg_pulse = (sum_pulse/n_readings)
+    if aha.n_readings:
+        avg_systolic = (aha.running_sys_total/aha.n_readings)
+        avg_diastolic = (aha.running_dia_total/aha.n_readings)
+        avg_pulse = (aha.running_pulse_total/aha.n_readings)
         print()
         print(
         "\tFor a total of {} readings, average is {:.0f}/{:.0f} {:.0f}"
-            .format(n_readings, avg_systolic, avg_diastolic, avg_pulse)
+            .format(aha.n_readings,
+                aha.running_sys_total,
+                aha.running_dia_total,
+                aha.running_pulse_total)
         )
         n_highs = len(high_systolics)
         if n_highs and SYS:
@@ -303,23 +243,11 @@ def main():
                 next_level = [reading for reading in high_systolics
                         if reading > sysbp]
                 n_highs = len(next_level)
-        if AHA:
+        elif args["--report"]:
             print()
-            print("American Heart Association")
-            print(
-            "      Category: criteria                Number of Readings")
-            print(
-            "      ------------------                ------------------")
-            for category, n in (
-                ('Normal: <120 Sys and <80 Diastolic', n_normal),
-                ('Elevated: 120–129 Sys and <80 Diastolic', n_elevated),
-                ('Stage 1: 130–139 Sys or 80–89 Diastolic', n_stage1),
-                ('Stage 2: >=140 Sys or >=90 Diastolic', n_stage2),
-                ('Crisis: >180 Sys and/or >120 Diastolic' , n_crisis),
-                ):
-                if n:
-                    print("{:^40}   {:^5}".format(category, n))
-
+            for line in aha.show_category_breakdown(
+                with_headers=True):
+                print(line)
         elif SYS:
             print("There are no systolics over the threashold")
     else:
