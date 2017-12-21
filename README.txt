@@ -30,3 +30,7 @@ for details.
 
 A typical source file is provided: bps.txt
 
+Command line options and arguments are implemented using the
+non-standard library module `docopt`.  Use either `virtualenv` or
+
+    sudo pip install docopt

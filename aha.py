@@ -26,138 +26,75 @@ class AHA(object):
     American Heart Association classification of hypertension.
     """
 
-    # Reg Ex:
-    line_re: str = r"""
-    [SMTWF][uoehra][neduit]  # week day- discarded
-    [ ]
-    (?P<month>[JFMAJSOND][aepuco][nbrylgptvc])
-    [ ]
-    (?P<date>[\s|\d]\d)
-    [ ]
-    (?P<time>\d\d:\d\d)
-    :\d\d  # seconds- discarded
-    [ ]
-    [A-Z]{3,3}  # time zone- discarded
-    [ ]
-    (?P<year>\d{4,4})
-    [ ]
-    (?P<systolic>\d{2,3})
-    [/]
-    (?P<diastolic>\d{2,3})
-    [ ]
-    (?P<pulse>\d{2,3})
-    """
-    line_pattern = re.compile(line_re, re.VERBOSE)
+    def __init__(self):
 
-    def crisis(sys, dia):
-        """>180 &/or >=120"""
-        if (sys > 180) or (dia >= 120):
-            return True
+        self.running_sys_total = 0
+        self.running_dia_total = 0
+        self.running_pulse_total = 0
+        self.n_readings = 0
 
-    def stage2(sys, dia):
-        """>=140 or >=90"""
-        if sys >= 140 or dia >= 90:
-            return True
+        self.categories = [
+            dict(  # 0
+                level = ' ',
+                name = "Normal",
+                expanded_name = "Normal blood pressure",
+                ),
+            dict(  # 1
+                level = '1',
+                name = "Elevated",
+                expanded_name = "Elevated blood pressure",
+                ),
+            dict(  # 2
+                level = '2',
+                name = "Stage 1",
+                expanded_name = "Stage 1 hypertension",
+                ),
+            dict(  # 3
+                level = '3',
+                name = "Stage 2",
+                expanded_name = "Stage 2 hypertension",
+                ),
+            dict(  # 4
+                level = '4',
+                name = "Crisis",
+                expanded_name = "Hypertensive Crisis!",
+                ),
+        ]
+        
+        for category in self.categories:
+            category["running_sys_total"] = 0
+            category["running_dia_total"] = 0
+            category["running_pulse_total"] = 0
+            category["count"] = 0
 
-    def stage1(sys, dia):
-        """130–139 or 80–89"""
-        if ((sys >= 130 and sys < 140) or
-            (dia >= 80 and dia < 90)):
-            return True
 
-    def elevated(sys, dia):
-        """120–129 & <80"""
-        if ((sys >= 120 and sys < 130) and 
-            (dia < 80)):
-            return True
-
-    def normal(sys, dia):
-        """< 120 & < 80"""
-        if sys < 120 and dia < 80:
-            return True
-
-    def misc(sys, dia):
-        """Catch anyting that 'falls thru'!"""
-        return True
-
-    running_sys_total = 0
-    running_dia_total = 0
-    running_pulse_total = 0
-    n_readings = 0
-
-    categories = [  # Order (by severity) is important.
-        dict(  # 4
-            level = '4',
-            name = "Crisis",
-            expanded_name = "Crisis level hypertension!",
-            count = 0,
-            f = crisis,
-            ),
-        dict(  # 3
-            level = '3',
-            name = "Stage 2",
-            expanded_name = "Stage 2 hypertension",
-            count = 0,
-            f = stage2,
-            ),
-        dict(  # 2
-            level = '2',
-            name = "Stage 1",
-            expanded_name = "Stage 1 hypertension",
-            count = 0,
-            f= stage1,
-            ),
-        dict(  # 1
-            level = '1',
-            name = "Elevated",
-            expanded_name = "Elevated blood pressure",
-            count = 0,
-            f = elevated,
-            ),
-        dict(  # 0
-            level = ' ',
-            name = "Normal",
-            expanded_name = "Normal blood pressure",
-            count = 0,
-            f = normal,
-            ),
-        dict(  # 5  # only to catch errors of logic.
-            level = '5',
-            name = "Misc",
-            expanded_name = "Misc- if this appears it's an error!",
-            count = 0,
-            f = misc,
-            ),
-    ]
-
+    def add2cat(self, cat, systolic, diastolic, pulse):
+        """
+        Add a set of values to a specific category.
+        """
+        self.categories[cat]["running_sys_total"] += systolic
+        self.categories[cat]["running_dia_total"] += diastolic
+        self.categories[cat]["running_pulse_total"] += pulse
+        self.categories[cat]["count"] += 1
 
     def add_reading(self, systolic, diastolic, pulse):
+        """
+        Add a set of values to appropriage category.
+        """
         self.running_sys_total += systolic
         self.running_dia_total += diastolic
         self.running_pulse_total += pulse
         self.n_readings += 1
-        for category in self.categories:
-            if category['f'](systolic, diastolic):
-                category['count'] += 1
-                if category["name"] == "Misc":
-                    print("Warning!!")
-                return
-    
-    def process_line(self, line):
-        match = self.line_pattern.search(line)
-        if match:
-            self.add_reading(
-                int(match.group("systolic")),
-                int(match.group("diastolic")),
-                int(match.group("pulse")))
-
-    def read_file(self, infile):
-        with open(infile, 'r') as f_object:
-            for line in f_object:
-                self.process_line(line)
-
+        cat = self.category_int(systolic, diastolic)
+        self.add2cat(cat, systolic, diastolic, pulse)
 
     def show_category_breakdown(self, with_headers=False):
+        """
+        Returns an array of strings showing how many readings there
+        are for each category.  Categories without a reading are not
+        shown. Set <with_headers> to True if want header lines as
+        well.
+        """
         ret = []
         if with_headers:
             ret.append("Hypertensive   # of")
@@ -169,25 +106,65 @@ class AHA(object):
                     .format(category['name'], category["count"]))
         return ret
 
-    def average_reading(self):
+    def average_all_readings(self):
+        """
+        Returns a tuple of averages: systolic, diastolic and pulse.
+        """
         return (self.running_sys_total/self.n_readings,
             self.running_dia_total/self.n_readings,
             self.running_pulse_total/self.n_readings)
 
+    def category_int(self, systolic, dia):
+        """
+        Returns an integer (unless there is an error!)
+        coresponding to (zero based) normal blood presure,
+        elevated blood presure, stage 1 hypertension,
+        stage 2 hypertension, hypertensive crisis.
+        Because of ambiguity in the criteria, order of testing is
+        important. (i.e. return the 'worse case scenario)
+        """
+        if systolic<120 and dia<80: return 0  # "normal"
+        if systolic>180 or dia>=120: return 4  #  "crisis"
+        if systolic>=140 or dia>=90: return 3  #  "stage 2"
+        if 130<=systolic<140 or 80<=dia<90: return 2  #  "stage 1"
+        if 120<=systolic<130 and dia<80: return 1  #  "elevated"
+        print("ERROR")
 
-    def which_category(self, systolic, diastolic, display_item="name"):
-        """ display_item can be 'name', 'expanded_name or 'level'"""
-        for category in self.categories:
-            if category['f'](systolic, diastolic):
-                # have found the appropriate category
-                return category[display_item]
+test_data = (
+    # systolic, diastolic, category
+    (119, 79, 0),
+    (120, 79, 1),
+    (129, 79, 1),
+    (130, 79, 2),
+    (134, 71, 2),
+    (139, 79, 2),
+    (129, 80, 2),
+    (129, 89, 2),
+    (140, 89, 3),
+    (139, 90, 3),
+    (154, 83, 3),
+    (181, 119, 4),
+    (181, 120, 4),
+    (179, 120, 4),
+    )
+
+def test_category_int():
+    ai = AHA()
+    for systolic, diastolic, category in test_data:
+        res = ai.category_int(systolic, diastolic)
+        if not res == category:
+            print("category_int({}/{}) incorrectly returns {}, not {}"
+                .format(systolic, diastolic, res, category))
 
         
 if __name__ == "__main__":
 
+    test_category_int()
+
     aha = AHA()
 
     aha.add_reading(116, 71, 65)
+    aha.add_reading(136, 71, 65)
     aha.add_reading(136, 71, 65)
     aha.add_reading(236, 115, 65)
     aha.add_reading(120, 72, 65)
@@ -200,23 +177,7 @@ if __name__ == "__main__":
         print(item)
 
     print("Average reading is {:.1f}/{:.1f} which is {}"
-        .format(*aha.average_reading(),
-            aha.which_category(aha.average_reading()[0],
-                aha.average_reading()[1],
-                display_item='level')))
-
-    print("\nMy Readings....")
-    aha = AHA()
-    aha.read_file("bps.txt")
-
-    for item in aha.show_category_breakdown(True):
-        print(item)
-
-    print("Average (of {} readings) is {:.1f}/{:.1f} which is {}"
-        .format(aha.n_readings,
-            *aha.average_reading()[:-1],
-            aha.which_category(*aha.average_reading()[:-1],
-                display_item="name")
-            )
-        )
+        .format(*aha.average_all_readings()[:2],
+            aha.categories[aha.category_int(*aha.average_all_readings()[:2])]["expanded_name"]
+                ))
 

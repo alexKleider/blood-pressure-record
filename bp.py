@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # File: bp.py
 
@@ -79,23 +79,23 @@ else:
         ALARM = '!'
 
 # Constants:
-INPUT_HEADER: str =    "Day Date   Time         Year sys/di pulse"
-INPUT_UNDERLINE: str = "--- ------ ------------ ---- --- -- --"
+INPUT_HEADER =    "Day Date   Time         Year sys/di pulse"
+INPUT_UNDERLINE = "--- ------ ------------ ---- --- -- --"
 
-COLUMN_SPACER: str = ("     ")
-COLUMN_HEADER: str =    ("Day Time   sys/di pulse")
-COLUMN_UNDERLINE: str = ("--- ----   -----  -----")
+COLUMN_SPACER = ("     ")
+COLUMN_HEADER =    ("Day Time   sys/di pulse")
+COLUMN_UNDERLINE = ("--- ----   -----  -----")
 FORMATTER = "{}"
-header_line: str = COLUMN_HEADER
-underline: str = COLUMN_UNDERLINE 
-formatting_string: str = FORMATTER
+header_line = COLUMN_HEADER
+underline = COLUMN_UNDERLINE 
+formatting_string = FORMATTER
 for n in range(1, N_COLUMNS):
     header_line = header_line + COLUMN_SPACER + COLUMN_HEADER
     underline = underline + COLUMN_SPACER + COLUMN_UNDERLINE
     formatting_string = formatting_string + COLUMN_SPACER + FORMATTER
 
 # Reg Ex:
-line_re: str = r"""
+line_re = r"""
 [SMTWF][uoehra][neduit]  # week day- discarded
 [ ]
 (?P<month>[JFMAJSOND][aepuco][nbrylgptvc])
@@ -126,7 +126,7 @@ list_of_readings = []
 high_systolics = []
 superfluous_lines = []
 
-def process_non_reading(line: str) -> str:
+def process_non_reading(line):
     if not ((INPUT_HEADER in line) or (INPUT_UNDERLINE in line)):
         return line.strip()
 
@@ -187,8 +187,8 @@ def process_line(line, aha):
             month = mo
             print("{} {}:".format(year, month))
         if args["--report"]:
-            alarm = aha.which_category(systolic, diastolic,
-                display_item="level")
+            cat = aha.category_int(systolic, diastolic) 
+            alarm = aha.categories[cat]["level"]
         elif systolic > SYS:
             alarm = ALARM
         else:
@@ -220,22 +220,18 @@ def main():
             process_line(line, aha)
     clear_readings()
     if aha.n_readings:
-        avg_systolic = (aha.running_sys_total/aha.n_readings)
-        avg_diastolic = (aha.running_dia_total/aha.n_readings)
-        avg_pulse = (aha.running_pulse_total/aha.n_readings)
+        avg_systolic, avg_diastolic, avg_pulse = (
+            aha.average_all_readings())
 #       print()
+        cat = aha.category_int(avg_systolic, avg_diastolic)
         print(
         "\tFor a total of {} readings, average is {:.0f}/{:.0f} {:.0f}"
             .format(aha.n_readings,
-                aha.running_sys_total/aha.n_readings,
-                aha.running_dia_total/aha.n_readings,
-                aha.running_pulse_total/aha.n_readings)
-        + "  That's '{}'.".format(aha.which_category(
-                aha.running_sys_total/aha.n_readings,
-                aha.running_dia_total/aha.n_readings,
-                "expanded_name"
-            ))
-        )
+                avg_systolic,
+                avg_diastolic,
+                avg_pulse)
+        + "  That's '{}'."
+            .format(aha.categories[cat]["expanded_name"]))
         n_highs = len(high_systolics)
         if n_highs and SYS:
             sysbp = SYS
