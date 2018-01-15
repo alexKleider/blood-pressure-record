@@ -12,7 +12,7 @@ NORMAL                     < 120      &     < 80
 ELEVATED                  120 – 129   &     < 80
 (HYPERTENSION) STAGE 1    130 – 139   or    80 – 89
 (HYPERTENSION) STAGE 2     >= 140     or    >= 90
-HYPERTENSIVE CRISIS        > 180     &/or   >= 120
+HYPERTENSIVE CRISIS        > 180     &/or   > 120
 
 [1]
 http://www.heart.org/HEARTORG/Conditions/HighBloodPressure/KnowYourNumbers/Understanding-Blood-Pressure-Readings_UCM_301764_Article.jsp#.WjW1DfZry1I
@@ -67,10 +67,26 @@ class AHA(object):
             category["running_pulse_total"] = 0
             category["count"] = 0
 
+    def category_int(self, systolic, dia):
+        """
+        Returns an integer (unless there is an error!)
+        coresponding to (zero based) [0] normal blood presure,
+        [1]elevated blood presure, [2]stage 1 hypertension,
+        [3]stage 2 hypertension, [4]hypertensive crisis.
+        Because of ambiguity in the criteria, order of testing is
+        important. (i.e. return the 'worse case scenario')
+        """
+        if systolic<120 and dia<80: return 0  # "normal"
+        if 120<=systolic<130 and dia<80: return 1  #  "elevated"
+        if systolic>180 or dia>120: return 4  #  "crisis"
+        if systolic>=140 or dia>=90: return 3  #  "stage 2"
+        if 130<=systolic<140 or 80<=dia<90: return 2  #  "stage 1"
+        print("ERROR")
+
 
     def add2cat(self, cat, systolic, diastolic, pulse):
         """
-        Add a set of values to a specific category.
+        Add a single recording set of values to a specific category.
         """
         self.categories[cat]["running_sys_total"] += systolic
         self.categories[cat]["running_dia_total"] += diastolic
@@ -79,7 +95,7 @@ class AHA(object):
 
     def add_reading(self, systolic, diastolic, pulse):
         """
-        Add a set of values to appropriage category.
+        Add a single recording set of values to appropriage category.
         """
         self.running_sys_total += systolic
         self.running_dia_total += diastolic
@@ -113,22 +129,6 @@ class AHA(object):
         return (self.running_sys_total/self.n_readings,
             self.running_dia_total/self.n_readings,
             self.running_pulse_total/self.n_readings)
-
-    def category_int(self, systolic, dia):
-        """
-        Returns an integer (unless there is an error!)
-        coresponding to (zero based) normal blood presure,
-        elevated blood presure, stage 1 hypertension,
-        stage 2 hypertension, hypertensive crisis.
-        Because of ambiguity in the criteria, order of testing is
-        important. (i.e. return the 'worse case scenario)
-        """
-        if systolic<120 and dia<80: return 0  # "normal"
-        if systolic>180 or dia>=120: return 4  #  "crisis"
-        if systolic>=140 or dia>=90: return 3  #  "stage 2"
-        if 130<=systolic<140 or 80<=dia<90: return 2  #  "stage 1"
-        if 120<=systolic<130 and dia<80: return 1  #  "elevated"
-        print("ERROR")
 
 test_data = (
     # systolic, diastolic, category

@@ -18,7 +18,7 @@ Options:
     preasure which will trigger the alarm character to be displayed
     [default: 0]
     -r --report  Report how the American Heart Association criteria
-    apply. Each elevated pressure reading will be separated by its
+    apply. Each elevated pressure reading will be separated from its
     corresponding pulse reading by a digit representing how elevated
     the pressure is- ' ' if normal, '1' = elevated, '2' = stage 1,
     '3' = stage 2, '4' = crisis.
@@ -108,7 +108,7 @@ line_re = r"""
 [A-Z]{3,3}  # time zone- discarded
 [ ]
 (?P<year>\d{4,4})
-[ ]
+[ ]+
 (?P<systolic>\d{2,3})
 [/]
 (?P<diastolic>\d{2,3})
@@ -225,7 +225,7 @@ def main():
 #       print()
         cat = aha.category_int(avg_systolic, avg_diastolic)
         print(
-        "\tFor a total of {} readings, average is {:.0f}/{:.0f} {:.0f}"
+        "Summary: For a total of {} readings, average is {:.0f}/{:.0f} {:.0f}"
             .format(aha.n_readings,
                 avg_systolic,
                 avg_diastolic,
