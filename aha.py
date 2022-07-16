@@ -3,8 +3,8 @@
 # File: aha.py
 
 """
-Blood preasure criteria for hypertension according to the American
-Heart Association (AHA)[1]
+American Heart Association (AHA)[1]
+Blood preasure criteria for hypertension
 
 BLOOD PRESSURE CATEGORY   SYSTOLIC   &/or DIASTOLIC
 -----------------------   --------   ---- ---------
