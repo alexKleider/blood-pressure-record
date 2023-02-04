@@ -2,6 +2,12 @@
 
 # File: gather_data.py
 
+"""
+Began work on this in early August 2022
+after beginning to collaborate with Leam Hall on
+his bp_tracker project. 
+"""
+
 infile = "bps.txt"
 
 
