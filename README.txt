@@ -5,7 +5,7 @@ line, each BP reading was recorded by first entering the date using:
 !!date
 Then the bp and pulse were appended to the line with the date.
 
-Assyuming one is running a 'nix type OS..
+Assuming one is running a 'nix type OS..
 and that your relevant code base is in the $HOME/Git/BP directory..
 and your data file is 'bps.txt' within that directory..
 The following lines in ~/.bashrc:
