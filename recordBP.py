@@ -24,10 +24,10 @@ def append_bp_file():
         if len(bp) != 2: continue
         sy, di = bp
         break
-    newline = f"{timestamp}  {sy:>3}/{di} {pulse}"
+    new_line = f"{timestamp}  {sy:>3}/{di} {pulse}"
     with open(bp_file, 'a') as f:
-        print(newline, file=f)
-    print(f"Appended '{newline}' to...")
+        print(new_line, file=f)
+    print(f"Appended '{new_line}' to...")
     print(f"'{bp_file}'.")
 
 
